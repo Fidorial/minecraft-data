@@ -940,5 +940,20 @@
     "name": "attackUsesOwnPacket",
     "description": "attack uses its own packet instead of interact",
     "versions": ["26.1", "latest"]
+  },
+  {
+    "name": "quickMoveClickSendsEmptyItem",
+    "description": "the server accepts a quick-move (mode 1) window click only if the packet's item is empty; earlier versions expect the moved stack",
+    "versions": ["1.12", "1.16.5"]
+  },
+  {
+    "name": "hasItemCommand",
+    "description": "/replaceitem was replaced by /item replace",
+    "versions": ["1.17", "latest"]
+  },
+  {
+    "name": "replaceItemSlotIsPrefixed",
+    "description": "the /replaceitem slot argument is prefixed with slot. (slot.container.0) and item names need the minecraft: namespace",
+    "versions": ["1.8", "1.12.2"]
   }
 ]
