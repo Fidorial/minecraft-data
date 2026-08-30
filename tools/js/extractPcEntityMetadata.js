@@ -9,7 +9,9 @@ const { globSync } = require('glob')
  * @returns {string[]}
  */
 function prepLines (raw) {
-  const lines = raw.replaceAll(' {\n', ' {;\n').split(';')
+  // Sous Windows, git clone convertit les sources decompilees en CRLF, ce qui casse
+  // le decoupage des blocs ci-dessous. On normalise avant tout traitement.
+  const lines = raw.replace(/\r\n/g, '\n').replaceAll(' {\n', ' {;\n').split(';')
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim()
     if (line.includes('static final') && !line.includes(' = ')) {
@@ -32,21 +34,31 @@ function prepLines (raw) {
  * @returns {[Record<string,string>, Record<string,string>]}
  */
 function getEntityTypes (versionDir) {
-  const entityTypes = fs.readFileSync(`${versionDir}/client/net/minecraft/world/entity/EntityType.java`, 'utf8')
+  const base = `${versionDir}/client/net/minecraft/world/entity`
+  // Depuis 26.2 les enregistrements sont dans EntityTypes.java, et les noms de registre
+  // ne sont plus des litteraux mais des ResourceKey definies dans EntityTypeIds.java.
+  const typesPath = fs.existsSync(`${base}/EntityTypes.java`) ? `${base}/EntityTypes.java` : `${base}/EntityType.java`
+  const idsPath = `${base}/EntityTypeIds.java`
+  const ids = {}
+  if (fs.existsSync(idsPath)) {
+    for (const m of fs.readFileSync(idsPath, 'utf8').matchAll(/(\w+) = create\("([a-z0-9_]+)"\)/g)) {
+      ids[m[1]] = m[2]
+    }
+  }
+  const entityTypes = fs.readFileSync(typesPath, 'utf8')
   const entityTypesLines = prepLines(entityTypes)
   const classNameTo = {}
   const nameToClass = {}
   for (const line of entityTypesLines) {
-    if (line.includes('= register(')) {
-      // Given the line: public static final EntityType<Allay> ALLAY = register( "allay", EntityType.Builder.<Allay>of(Allay::new, MobCategory.CREATURE).sized(0.35F, 0.6F).clientTrackingRange(8).updateInterval(2) );
-      // we extract Allay and "allay"
-      const regex = line.match(/EntityType<(.*)> (.*) = register\(\W*"([a-z0-9_]+)"/)
-      if (regex) {
-        const [, type, , name] = regex
-        classNameTo[type] = name
-        nameToClass[name] = type
-      }
-    }
+    if (!line.includes('= register(')) continue
+    // register("allay", ...) jusqu'en 26.1, register(EntityTypeIds.ALLAY, ...) depuis 26.2
+    const regex = line.match(/EntityType<(.*?)> (\w+) = register\(\W*(?:"([a-z0-9_]+)"|EntityTypeIds\.(\w+))/)
+    if (!regex) continue
+    const [, type, , literal, idConst] = regex
+    const name = literal || ids[idConst]
+    if (!name) continue
+    classNameTo[type] = name
+    nameToClass[name] = type
   }
   return [classNameTo, nameToClass]
 }
