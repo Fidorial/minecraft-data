@@ -545,6 +545,14 @@
     ]
   },
   {
+    "name": "furnaceNbtUsesSnakeCase",
+    "description": "furnace block entity NBT keys are snake_case (cooking_time_spent) instead of PascalCase (CookTime)",
+    "versions": [
+      "1.21.4",
+      "latest"
+    ]
+  },
+  {
     "name": "gameRuleUsesResourceLocation",
     "description": "gamerule names use resource location syntax",
     "versions": [
@@ -577,6 +585,14 @@
     ]
   },
   {
+    "name": "hasDataCommand",
+    "description": "has the /data command; block entity NBT is edited with /data merge block instead of /blockdata",
+    "versions": [
+      "1.13",
+      "latest"
+    ]
+  },
+  {
     "name": "hasEditBookPacket",
     "description": "book editing is handled through a packet with the updated book item",
     "versions": [
@@ -597,6 +613,14 @@
     "description": "Support the execute command",
     "versions": [
       "1.14",
+      "latest"
+    ]
+  },
+  {
+    "name": "hasItemCommand",
+    "description": "/replaceitem was replaced by /item replace",
+    "versions": [
+      "1.17",
       "latest"
     ]
   },
@@ -872,6 +896,14 @@
     ]
   },
   {
+    "name": "quickMoveClickSendsEmptyItem",
+    "description": "the server accepts a quick-move (mode 1) window click only if the packet's item is empty; earlier versions expect the moved stack",
+    "versions": [
+      "1.12",
+      "1.16.5"
+    ]
+  },
+  {
     "name": "registryDataIsMandatory",
     "description": "The server needs to send the registry data to the client before sending the finish_configuration packet",
     "versions": [
@@ -885,6 +917,14 @@
     "versions": [
       "1.19.3",
       "latest"
+    ]
+  },
+  {
+    "name": "replaceItemSlotIsPrefixed",
+    "description": "the /replaceitem slot argument is prefixed with slot. (slot.container.0) and item names need the minecraft: namespace",
+    "versions": [
+      "1.8",
+      "1.12.2"
     ]
   },
   {
