@@ -1,4 +1,4 @@
-!version: 26.3-snapshot-10
+!version: 26.2
 !StartDocs: true
 
 ^types:
@@ -2576,7 +2576,7 @@
             if true: chat_session
             default: void
          gamemode: ../action/update_game_mode ?
-            if true: i8
+            if true: varint
             default: void
          listed: ../action/update_listed ?
             if true: varint
