@@ -1,18 +1,23 @@
 #!/usr/bin/env node
 
 const fs = require('fs')
-const { join, basename } = require('path')
+const { join, basename, resolve } = require('path')
 
-const VERSION = '26.3-rc-2'
-const PREV = '26.3-rc-1'
+const VERSION = '26.3-rc-3'
+const PREV = '26.3-rc-2'
 const MAJOR = '26.3'
 
 const PROTOCOL = parseInt(process.argv[2])
-const srcArg = process.argv[3]
 if (!Number.isInteger(PROTOCOL)) {
   console.error(`Usage : node add-${VERSION}.js <protocol_version> [dossier_sortie_generateur]`)
   process.exit(1)
 }
+
+// Sous Windows, un chemin entre guillemets qui finit par \ ("...\") fait echapper le
+// guillemet fermant : Node recoit alors le chemin avec un " final. On nettoie les
+// guillemets et separateurs en fin de chaine avant de resoudre le chemin.
+const cleanPath = p => resolve(p.trim().replace(/["']+$/, '').replace(/^["']+/, '').replace(/[\\/]+$/, ''))
+const srcArg = process.argv[3] ? cleanPath(process.argv[3]) : null
 
 const root = join(__dirname, '..', '..')
 const data = join(root, 'data')
@@ -24,6 +29,13 @@ const log = (...a) => console.log(' ', ...a)
 
 if (!fs.existsSync(join(pc, 'common', 'versions.json'))) {
   console.error('Ce script doit etre lance depuis tools/js/ dans un clone de minecraft-data.')
+  process.exit(1)
+}
+
+// Verifie la source AVANT de modifier quoi que ce soit, pour ne pas laisser le depot a moitie a jour.
+const srcDir = srcArg || join(pc, PREV)
+if (!fs.existsSync(srcDir) || !fs.statSync(srcDir).isDirectory()) {
+  console.error(`Dossier introuvable : ${srcDir}`)
   process.exit(1)
 }
 
@@ -74,7 +86,7 @@ if (!versions.includes(VERSION)) {
   log(`versions.json contient deja ${VERSION}`)
 }
 
-// ---------------------------------------------------------------- 4. proto.yml : latest passe de rc-1 a rc-2
+// ---------------------------------------------------------------- 4. proto.yml : latest passe de PREV a VERSION
 // Regex qui accepte les suffixes -rc-N / -snapshot-N (celle d'incrementVersion.js ne les gere pas)
 const VER_RX = /!version: ([0-9A-Za-z.-]+)/
 const latestProtoPath = join(pc, 'latest', 'proto.yml')
@@ -90,7 +102,9 @@ if (currentProtoVersion === PREV) {
   protoYml = protoYml.replace(VER_RX, `!version: ${VERSION}`)
   fs.writeFileSync(latestProtoPath, protoYml, 'utf-8')
   log(`latest/proto.yml passe a !version: ${VERSION}`)
-} else if (currentProtoVersion !== VERSION) {
+} else if (currentProtoVersion === VERSION) {
+  log(`latest/proto.yml deja sur ${VERSION}`)
+} else {
   console.error(`latest/proto.yml est sur ${currentProtoVersion}, attendu ${PREV} ou ${VERSION}. Abandon.`)
   process.exit(1)
 }
@@ -140,14 +154,9 @@ if (!dataPaths.pc[VERSION]) {
   log(`dataPaths: entree ${VERSION} creee (heritage de ${PREV})`)
 }
 
-// ---------------------------------------------------------------- 6. donnees (generateur, sinon copie de rc-1)
-const srcDir = srcArg || join(pc, PREV)
-log(srcArg ? `donnees depuis ${srcArg}` : `pas de dossier fourni : copie des donnees de ${PREV}`)
+// ---------------------------------------------------------------- 6. donnees (generateur, sinon copie de PREV)
+log(srcArg ? `donnees depuis ${srcDir}` : `pas de dossier fourni : copie des donnees de ${PREV}`)
 {
-  if (!fs.existsSync(srcDir)) {
-    console.error(`Dossier introuvable : ${srcDir}`)
-    process.exit(1)
-  }
   const entry = dataPaths.pc[VERSION]
   const copied = []
   const unknown = []
@@ -165,6 +174,17 @@ log(srcArg ? `donnees depuis ${srcArg}` : `pas de dossier fourni : copie des don
   }
   log(`copie ${copied.length} fichiers : ${copied.sort().join(', ')}`)
   if (unknown.length) log(`cles absentes de dataPaths (a verifier) : ${unknown.join(', ')}`)
+
+  // Fidorial lit blockTransformer dans items.json : on previent si le generateur ne l'a pas exporte.
+  const itemsPath = join(pc, VERSION, 'items.json')
+  if (srcArg && fs.existsSync(itemsPath)) {
+    const withTransformer = readJSON(itemsPath).filter(i => i.blockTransformer).length
+    if (withTransformer === 0) {
+      log('attention : aucun item n\'a de blockTransformer, le patch du generateur est-il applique ?')
+    } else {
+      log(`${withTransformer} items avec blockTransformer`)
+    }
+  }
 }
 
 writeJSON(dataPathsPath, dataPaths)
