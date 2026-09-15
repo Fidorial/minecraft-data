@@ -35,6 +35,11 @@
           "type": "string"
         }
       },
+      "blockTransformer": {
+        "description": "The minecraft:block_transformer registry entry this item applies to blocks by default (Java edition)",
+        "type": "string",
+        "pattern": "\\S+"
+      },
       "maxDurability": {
         "description": "the amount of durability an item has before being damaged/used",
         "type": "integer",
