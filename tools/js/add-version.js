@@ -3,21 +3,51 @@
 const fs = require('fs')
 const { join, basename, resolve } = require('path')
 
-const VERSION = '26.3-rc-3'
-const PREV = '26.3-rc-2'
-const MAJOR = '26.3'
+// ---------------------------------------------------------------- arguments
+const positional = []
+const flags = {}
+for (let i = 2; i < process.argv.length; i++) {
+  const arg = process.argv[i]
+  if (arg.startsWith('--')) {
+    flags[arg.slice(2)] = process.argv[++i]
+  } else {
+    positional.push(arg)
+  }
+}
 
-const PROTOCOL = parseInt(process.argv[2])
-if (!Number.isInteger(PROTOCOL)) {
-  console.error(`Usage : node add-${VERSION}.js <protocol_version> [dossier_sortie_generateur]`)
+const usage = () => {
+  console.error('Usage : node add-version.js <version> <precedente> <protocole> [dossier_generateur] [--data-version N] [--major X.Y]')
   process.exit(1)
 }
 
-// Sous Windows, un chemin entre guillemets qui finit par \ ("...\") fait echapper le
-// guillemet fermant : Node recoit alors le chemin avec un " final. On nettoie les
-// guillemets et separateurs en fin de chaine avant de resoudre le chemin.
-const cleanPath = p => resolve(p.trim().replace(/["']+$/, '').replace(/^["']+/, '').replace(/[\\/]+$/, ''))
-const srcArg = process.argv[3] ? cleanPath(process.argv[3]) : null
+const [VERSION, PREV, protocolArg, srcRaw] = positional
+if (!VERSION || !PREV || !protocolArg) usage()
+
+const PROTOCOL = Number(protocolArg)
+if (!Number.isInteger(PROTOCOL)) usage()
+
+const DATA_VERSION = flags['data-version'] !== undefined ? Number(flags['data-version']) : undefined
+if (DATA_VERSION !== undefined && !Number.isInteger(DATA_VERSION)) usage()
+
+const MAJOR = flags.major || (VERSION.match(/^(\d+\.\d+)/) || [])[1]
+if (!MAJOR) {
+  console.error(`Impossible de deduire la version majeure de ${VERSION}, passe --major X.Y`)
+  process.exit(1)
+}
+
+const IS_SNAPSHOT = /-rc-\d+$|-pre-?\d+$|^\d{2}w\d{2}[a-z]$/.test(VERSION)
+const RELEASE_TYPE = IS_SNAPSHOT ? 'snapshot' : 'release'
+
+// Les protocoles de snapshot / pre-release / rc ont le bit 30 (0x40000000) ; ceux des releases non.
+const SNAPSHOT_PROTOCOL_BIT = 0x40000000
+if (IS_SNAPSHOT !== (PROTOCOL >= SNAPSHOT_PROTOCOL_BIT)) {
+  console.error(`${PROTOCOL} ne ressemble pas a un protocole de ${RELEASE_TYPE}. Verifie protocol_version dans le version.json du server.jar.`)
+  process.exit(1)
+}
+
+// Sous Windows, "...\" echappe le guillemet fermant : Node recoit le chemin avec un " final.
+const cleanPath = p => resolve(p.trim().replace(/^["']+|["']+$/g, '').replace(/[\\/]+$/, ''))
+const srcArg = srcRaw ? cleanPath(srcRaw) : null
 
 const root = join(__dirname, '..', '..')
 const data = join(root, 'data')
@@ -26,18 +56,24 @@ const pc = join(data, 'pc')
 const readJSON = p => JSON.parse(fs.readFileSync(p, 'utf-8'))
 const writeJSON = (p, o) => fs.writeFileSync(p, JSON.stringify(o, null, 2), 'utf-8')
 const log = (...a) => console.log(' ', ...a)
+const escapeRx = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 if (!fs.existsSync(join(pc, 'common', 'versions.json'))) {
   console.error('Ce script doit etre lance depuis tools/js/ dans un clone de minecraft-data.')
   process.exit(1)
 }
+if (!fs.existsSync(join(pc, PREV))) {
+  console.error(`data/pc/${PREV} introuvable : verifie la version precedente.`)
+  process.exit(1)
+}
 
-// Verifie la source AVANT de modifier quoi que ce soit, pour ne pas laisser le depot a moitie a jour.
 const srcDir = srcArg || join(pc, PREV)
 if (!fs.existsSync(srcDir) || !fs.statSync(srcDir).isDirectory()) {
   console.error(`Dossier introuvable : ${srcDir}`)
   process.exit(1)
 }
+
+log(`${VERSION} (${RELEASE_TYPE}, majeure ${MAJOR}, protocole ${PROTOCOL}${DATA_VERSION !== undefined ? `, dataVersion ${DATA_VERSION}` : ''}) apres ${PREV}`)
 
 // ---------------------------------------------------------------- 1. version.json
 fs.mkdirSync(join(pc, VERSION), { recursive: true })
@@ -47,7 +83,7 @@ if (!fs.existsSync(versionPath)) {
     version: PROTOCOL,
     minecraftVersion: VERSION,
     majorVersion: MAJOR,
-    releaseType: 'snapshot'
+    releaseType: RELEASE_TYPE
   })
   log(`cree data/pc/${VERSION}/version.json`)
 } else {
@@ -57,20 +93,22 @@ if (!fs.existsSync(versionPath)) {
 // ---------------------------------------------------------------- 2. protocolVersions.json
 const protoVersionsPath = join(pc, 'common', 'protocolVersions.json')
 const protoVersions = readJSON(protoVersionsPath)
-if (!protoVersions.find(v => v.minecraftVersion === VERSION)) {
+const existing = protoVersions.find(v => v.minecraftVersion === VERSION)
+if (!existing) {
   const prev = protoVersions.find(v => v.minecraftVersion === PREV)
   if (prev && prev.version === PROTOCOL) {
     log(`attention : ${PROTOCOL} est deja le protocole de ${PREV}, verifie le numero`)
   }
-  protoVersions.unshift({
-    minecraftVersion: VERSION,
-    version: PROTOCOL,
-    usesNetty: true,
-    majorVersion: MAJOR,
-    releaseType: 'snapshot'
-  })
+  const entry = { minecraftVersion: VERSION, version: PROTOCOL }
+  if (DATA_VERSION !== undefined) entry.dataVersion = DATA_VERSION
+  Object.assign(entry, { usesNetty: true, majorVersion: MAJOR, releaseType: RELEASE_TYPE })
+  protoVersions.unshift(entry)
   writeJSON(protoVersionsPath, protoVersions)
   log(`ajoute ${VERSION} a protocolVersions.json`)
+} else if (DATA_VERSION !== undefined && existing.dataVersion !== DATA_VERSION) {
+  existing.dataVersion = DATA_VERSION
+  writeJSON(protoVersionsPath, protoVersions)
+  log(`protocolVersions.json : dataVersion de ${VERSION} -> ${DATA_VERSION}`)
 } else {
   log(`protocolVersions.json contient deja ${VERSION}`)
 }
@@ -87,7 +125,6 @@ if (!versions.includes(VERSION)) {
 }
 
 // ---------------------------------------------------------------- 4. proto.yml : latest passe de PREV a VERSION
-// Regex qui accepte les suffixes -rc-N / -snapshot-N (celle d'incrementVersion.js ne les gere pas)
 const VER_RX = /!version: ([0-9A-Za-z.-]+)/
 const latestProtoPath = join(pc, 'latest', 'proto.yml')
 let protoYml = fs.readFileSync(latestProtoPath, 'utf-8')
@@ -110,9 +147,6 @@ if (currentProtoVersion === PREV) {
 }
 
 // ---------------------------------------------------------------- 4b. correctif : paquets vides perdus
-// Dans le proto.yml de 26.3-rc-1, les commentaires "# Empty" sont desindentes au meme
-// niveau que le nom du paquet. protodef-yaml ne voit alors pas la cle comme un container vide
-// et la supprime (ex : packet_ping_start disparait -> protocol.json invalide, ping de statut casse).
 function fixEmptyPackets (file) {
   const src = fs.readFileSync(file, 'utf-8')
   const eol = src.includes('\r\n') ? '\r\n' : '\n'
@@ -175,9 +209,13 @@ log(srcArg ? `donnees depuis ${srcDir}` : `pas de dossier fourni : copie des don
   log(`copie ${copied.length} fichiers : ${copied.sort().join(', ')}`)
   if (unknown.length) log(`cles absentes de dataPaths (a verifier) : ${unknown.join(', ')}`)
 
-  // Fidorial lit blockTransformer dans items.json : on previent si le generateur ne l'a pas exporte.
+  const stillInherited = Object.entries(entry)
+    .filter(([, v]) => v !== `pc/${VERSION}`)
+    .map(([k, v]) => `${k}=${v}`)
+  if (stillInherited.length) log(`herite encore : ${stillInherited.join(', ')}`)
+
   const itemsPath = join(pc, VERSION, 'items.json')
-  if (srcArg && fs.existsSync(itemsPath)) {
+  if (fs.existsSync(itemsPath)) {
     const withTransformer = readJSON(itemsPath).filter(i => i.blockTransformer).length
     if (withTransformer === 0) {
       log('attention : aucun item n\'a de blockTransformer, le patch du generateur est-il applique ?')
@@ -193,17 +231,19 @@ writeJSON(dataPathsPath, dataPaths)
 const readmePath = join(root, 'README.md')
 let readme = fs.readFileSync(readmePath, 'utf-8')
 const marker = '<!--NEXT PC-->'
-if (!readme.includes(`, ${VERSION}`)) {
+if (!new RegExp(`, ${escapeRx(VERSION)}(?![\\w.-])`).test(readme)) {
   const eol = readme.includes('\r\n') ? '\r\n' : '\n'
   readme = readme.replace(eol + marker, `, ${VERSION}${eol}${marker}`)
   fs.writeFileSync(readmePath, readme, 'utf-8')
   log('README mis a jour')
+} else {
+  log(`README contient deja ${VERSION}`)
 }
 
 console.log(`
 Termine. Etapes suivantes, depuis tools/js :
 
   npm install
-  npm run build                            # regenere protocol.json (${PREV} et ${VERSION})
-  npm test                                 # validation des schemas
+  npm run build                            # regenere les protocol.json (dont ${PREV} et ${VERSION})
+  npm test                                 # lint + validation des schemas
 `)
