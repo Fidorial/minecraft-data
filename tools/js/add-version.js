@@ -35,7 +35,7 @@ if (!MAJOR) {
   process.exit(1)
 }
 
-const IS_SNAPSHOT = /-rc-\d+$|-pre-?\d+$|^\d{2}w\d{2}[a-z]$/.test(VERSION)
+const IS_SNAPSHOT = /-snapshot-\d+$|-rc-\d+$|-pre-?\d+$|^\d{2}w\d{2}[a-z]$/.test(VERSION)
 const RELEASE_TYPE = IS_SNAPSHOT ? 'snapshot' : 'release'
 
 // Les protocoles de snapshot / pre-release / rc ont le bit 30 (0x40000000) ; ceux des releases non.
