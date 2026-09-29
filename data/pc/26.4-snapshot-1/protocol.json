@@ -5102,6 +5102,28 @@
         {
           "name": "port",
           "type": "varint"
+        },
+        {
+          "name": "properties",
+          "type": [
+            "array",
+            {
+              "countType": "varint",
+              "type": [
+                "container",
+                [
+                  {
+                    "name": "key",
+                    "type": "string"
+                  },
+                  {
+                    "name": "value",
+                    "type": "string"
+                  }
+                ]
+              ]
+            }
+          ]
         }
       ]
     ],
@@ -6391,10 +6413,6 @@
             {
               "name": "name",
               "type": "string"
-            },
-            {
-              "name": "hashedSeed",
-              "type": "i64"
             },
             {
               "name": "gamemode",

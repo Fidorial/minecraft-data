@@ -1,4 +1,4 @@
-!version: 26.4-snapshot-1
+!version: 26.4-snapshot-2
 !StartDocs: true
 
 ^types:
@@ -1862,6 +1862,9 @@
    packet_common_transfer:
       host: string
       port: varint
+      properties: []varint
+                     key: string
+                     value: string
    packet_common_cookie_response:
       key: string
       value?: ByteArray
@@ -2242,7 +2245,6 @@
    CommonPlayerSpawnInfo:
       dimension: varint
       name: string
-      hashedSeed: i64
       gamemode: i8 =>
          0: survival
          1: creative
