@@ -1,4 +1,4 @@
-!version: 26.4-snapshot-4
+!version: 26.4-snapshot-5
 !StartDocs: true
 
 ^types:
@@ -328,7 +328,7 @@
                8: toot_horn
                9: brush
                10: bundle
-            sound: ItemSoundHolder
+            sound?: ItemSoundHolder
             makes_particles: bool
             effects: ItemConsumeEffect[]varint
          if use_remainder: Slot
@@ -365,7 +365,7 @@
                5: head
                6: body
                7: saddle
-            sound: ItemSoundHolder
+            sound?: ItemSoundHolder
             model?: string
             cameraOverlay?: string
             allowedEntities?: IDSet
@@ -374,7 +374,7 @@
             damageable: bool
             equipOnInteract: bool
             shearable: bool
-            shearingSound: ItemSoundHolder
+            shearingSound?: ItemSoundHolder
          if repairable:
             items: IDSet
          if glider: void
@@ -1986,12 +1986,15 @@
                      value: string
                      signature?: string
       sessionId: UUID
+      options: i8
    packet_compress:
       threshold: varint
    packet_login_plugin_request:
       messageId: varint
       channel: string
       data: restBuffer
+   packet_apply_options:
+      options: i8
    packet:
       name: varint =>
          0x00: disconnect
@@ -2000,6 +2003,7 @@
          0x03: compress
          0x04: login_plugin_request
          0x05: cookie_request
+         0x06: apply_options
       params: name ?
          if disconnect: packet_disconnect
          if encryption_begin: packet_encryption_begin
@@ -2007,6 +2011,7 @@
          if compress: packet_compress
          if login_plugin_request: packet_login_plugin_request
          if cookie_request: packet_common_cookie_request
+         if apply_options: packet_apply_options
 
 ^login.toServer.types:
    packet_login_start:
@@ -2030,6 +2035,8 @@
       data?: restBuffer
    packet_login_acknowledged:
       # Empty
+   packet_options_applied:
+      # Empty
    packet:
       name: varint =>
          0x00: login_start
@@ -2037,12 +2044,14 @@
          0x02: login_plugin_response
          0x03: login_acknowledged
          0x04: cookie_response
+         0x05: options_applied
       params: name ?
          if login_start: packet_login_start
          if encryption_begin: packet_encryption_begin
          if login_plugin_response: packet_login_plugin_response
          if login_acknowledged: packet_login_acknowledged
          if cookie_response: packet_common_cookie_response
+         if options_applied: packet_options_applied
 
 ^configuration.toClient.types:
    packet_code_of_conduct:
