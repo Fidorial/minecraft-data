@@ -1,4 +1,4 @@
-!version: 26.4-snapshot-6
+!version: 26.4-snapshot-7
 !StartDocs: true
 
 ^types:
@@ -2267,7 +2267,7 @@
             2: adventure
             3: spectator
          default: void
-      isDebug: bool
+      # 26.4-snapshot-7: isDebug removed (debug worlds are no longer flagged to the client)
       isFlat: bool
       death?: GlobalPos
       portalCooldown: varint
@@ -2473,6 +2473,8 @@
             endPosition: vec3f64
          if stepped:
             steps: PositionStep[]varint
+            # 26.4-snapshot-7: client drops pending interpolation and starts this path immediately
+            startImmediately: bool
    PositionStep:
       position: vec3f64
       tickOffset: varint
@@ -2675,6 +2677,7 @@
       canRestock: bool
    # Renamed from rel_entity_move. properties packs onGround (bit0) and stepCount (bits 1+) into
    # one leading varint; delta is a custom VecDelta type (linear 3xi16 when stepCount<=0, else
+   # startImmediately:bool (since 26.4-snapshot-7) followed by
    # stepCount * {ticks:varint, xa:i16, ya:i16, za:i16} with NO length prefix - stepCount comes
    # from `properties`, not an inline count). Needs a custom protodef parse function; expressed
    # here as a documented pseudo-type.
