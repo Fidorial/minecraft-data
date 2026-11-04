@@ -1,0 +1,37 @@
+{
+  "title": "blockEntities",
+  "type": "array",
+  "uniqueItems": true,
+  "items": {
+    "title": "blockEntity",
+    "type": "object",
+    "properties": {
+      "id": {
+        "description": "The protocol id of the block entity type",
+        "type": "integer",
+        "minimum": 0
+      },
+      "name": {
+        "description": "The name of the block entity type (e.g. chest)",
+        "type": "string",
+        "pattern": "\\S+"
+      },
+      "blocks": {
+        "description": "Names of the blocks carrying this block entity type",
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "\\S+"
+        }
+      }
+    },
+    "required": [
+      "id",
+      "name",
+      "blocks"
+    ],
+    "additionalProperties": false
+  }
+}

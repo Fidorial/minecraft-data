@@ -2047,6 +2047,7 @@
     "26.4-snapshot-7": {
       "attributes": "pc/26.4-snapshot-7",
       "blockCollisionShapes": "pc/26.4-snapshot-7",
+      "blockEntities": "pc/26.4-snapshot-7",
       "blocks": "pc/26.4-snapshot-7",
       "blockLoot": "pc/1.20",
       "biomes": "pc/26.4-snapshot-7",
