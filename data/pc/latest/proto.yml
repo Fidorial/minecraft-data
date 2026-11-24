@@ -1,4 +1,4 @@
-!version: 26.4-snapshot-10
+!version: 26.4-pre-1
 !StartDocs: true
 
 ^types:
@@ -288,7 +288,9 @@
             flags: bool[]varint
             strings: string[]varint
             colors: i32[]varint
+         # splitLines added in 26.4-pre-1 (whether long tooltip lines are split and wrapped)
          if tooltip_display:
+            splitLines: bool
             hideTooltip: bool
             hiddenComponents: varint[]varint
          if repair_cost: varint
@@ -331,7 +333,9 @@
             sound?: ItemSoundHolder
             makes_particles: bool
             effects: ItemConsumeEffect[]varint
-         if use_remainder: Slot
+         # Item lists and remainders of components are item templates (item, count, components),
+         # not slots: there is no leading count.
+         if use_remainder: ItemStackTemplate
          if use_cooldown:
             seconds: f32
             cooldownGroup?: string
@@ -424,9 +428,9 @@
          if map_post_processing: varint
          if potion_duration_scale: f32
          if charged_projectiles:
-            projectiles: Slot[]varint
+            projectiles: ItemStackTemplate[]varint
          if bundle_contents:
-            contents: Slot[]varint
+            contents: ItemStackTemplate[]varint
          if potion_contents:
             potionId?: varint
             customColor?: i32
@@ -533,8 +537,18 @@
          if base_color: DyeColor
          if pot_decorations:
             decorations: varint[]varint
+         # up to 256 entries, an empty slot of the container being an absent template
          if container:
-            contents: Slot[]varint
+            contents: [
+               "array",
+               {
+                  "countType": "varint",
+                  "type": [
+                     "option",
+                     "ItemStackTemplate"
+                  ]
+               }
+            ]
          if block_state:
             properties: []varint
                            name: string
@@ -3841,6 +3855,9 @@
       makeAll: bool
    packet_player_abilities:
       flags: i8
+   # status: 0 start destroy block, 1 change destroy direction, 2 abort destroy block,
+   # 3 stop destroy block, 4 drop all items, 5 drop item, 6 release use item,
+   # 7 cancel use item (added in 26.4-pre-1), 8 swap item with offhand, 9 stab
    packet_player_action:
       status: varint
       location: position
